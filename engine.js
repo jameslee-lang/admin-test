@@ -71,7 +71,9 @@
       ".slw-btn{border:0;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;}",
       ".slw-btn-primary{background:#ff4d6d;color:#fff;}",
       ".slw-btn-ghost{background:#f0f0f0;color:#555;}",
-      ".slw-exit{position:fixed;top:20px;right:20px;z-index:2147483004;width:36px;height:36px;background:#1a1a1a;color:#fff;border:0;border-radius:50%;padding:0;font-size:20px;line-height:1;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;}",
+      ".slw-exit{position:fixed;top:20px;right:20px;z-index:2147483004;background:#1a1a1a;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;}",
+      ".slw-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;}",
+      ".slw-btn:disabled{opacity:.35;cursor:not-allowed;}",
       ".slw-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:2147483005;background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3);}",
       ".slw-pick-hl{position:fixed;z-index:2147483001;background:rgba(255,77,109,.2);border:2px solid #ff4d6d;pointer-events:none;transition:all .05s ease;}",
       ".slw-panel{position:fixed;bottom:20px;left:20px;z-index:2147483004;width:360px;max-width:90vw;background:#fff;color:#1a1a1a;border-radius:10px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;pointer-events:auto;}",
@@ -170,8 +172,7 @@
     tip.className = "slw-tip";
     var exit = document.createElement("button");
     exit.className = "slw-exit";
-    exit.textContent = "×";
-    exit.setAttribute("aria-label", "종료");
+    exit.textContent = "× 종료";
     [dim, ring, tip, exit].forEach(function (el) {
       document.body.appendChild(el);
       state.els.push(el);
@@ -182,7 +183,34 @@
       teardown();
     });
 
+    // 고객사마다 실제로 쓰고 싶은 기능이 달라서, 가이드가 요구하는 동작(waitFor)을 안 해도
+    // ‹/› 버튼으로 자유롭게 스텝을 오갈 수 있어야 한다. 그러려면 이전 스텝 시도에서 걸어둔
+    // waitForElement/bindAdvance 의 리스너·옵저버·타이머를 다음 스텝으로 넘어가기 전에 반드시
+    // 걷어내야 한다 (안 그러면 옛 스텝의 클릭 리스너가 남아 엉뚱하게 다시 발동할 수 있다).
+    var stepBaseline = {
+      listeners: state.listeners.length,
+      observers: state.observers.length,
+      timers: state.timers.length
+    };
+
+    function clearStepListeners() {
+      while (state.listeners.length > stepBaseline.listeners) {
+        var l = state.listeners.pop();
+        l[0].removeEventListener(l[1], l[2], l[3]);
+      }
+      while (state.observers.length > stepBaseline.observers) {
+        state.observers.pop().disconnect();
+      }
+      while (state.timers.length > stepBaseline.timers) {
+        var t = state.timers.pop();
+        clearTimeout(t);
+        clearInterval(t);
+      }
+    }
+
     function showStep(index) {
+      clearStepListeners();
+
       if (index >= steps.length) {
         clearProgress();
         ring.style.display = "none";
@@ -190,8 +218,11 @@
         tip.innerHTML =
           "<h3>완료했습니다 🎉</h3><p>" +
           escapeHtml(flow.title || "") +
-          " 흐름을 끝까지 따라오셨습니다.</p>";
+          ' 흐름을 끝까지 따라오셨습니다.</p><div class="slw-nav"><button class="slw-btn slw-btn-ghost slw-nav-prev">‹ 이전</button><span></span></div>';
         placeTip(tip, null);
+        on(tip.querySelector(".slw-nav-prev"), "click", function () {
+          showStep(index - 1);
+        });
         return;
       }
 
@@ -202,66 +233,63 @@
       if (!step.selector) {
         ring.style.display = "none";
         dim.style.display = "none";
-        var advance = function () {
-          showStep(index + 1);
-        };
-        renderTip(step, index, steps.length, null, advance);
+        renderNav(step, index, steps.length, null);
         // urlChange 는 특정 요소가 아니라 location.href 를 보는 조건이라 selector 없이도 걸 수 있다.
         if (step.waitFor && step.waitFor.type === "urlChange") {
-          bindAdvance(step, null, advance);
+          bindAdvance(step, null, function () {
+            showStep(index + 1);
+          });
         }
         return;
       }
 
-      renderTip(step, index, steps.length, "waiting", null);
+      renderNav(step, index, steps.length, "waiting");
       waitForElement(step.selector, ELEMENT_WAIT_TIMEOUT_MS, function (target) {
         if (!target) {
-          renderTip(step, index, steps.length, "notfound", function () {
-            showStep(index + 1);
-          });
+          renderNav(step, index, steps.length, "notfound");
           return;
         }
         highlight(target, dim, ring);
-        renderTip(step, index, steps.length, target, function () {
-          showStep(index + 1);
-        });
+        renderNav(step, index, steps.length, target);
         bindAdvance(step, target, function () {
           showStep(index + 1);
         });
       });
     }
 
-    function renderTip(step, index, total, target, onManualNext) {
+    // 가이드 동작(waitFor) 완료 여부와 무관하게 항상 ‹ 이전 / 다음 › 을 눌러 이동할 수 있게 한다 —
+    // 고객사마다 원하는 기능이 달라서, 강제로 순서를 따라가게 하면 안 되기 때문.
+    function renderNav(step, index, total, statusOrTarget) {
       var html = "";
       html += '<div class="slw-step">' + (index + 1) + " / " + total + "</div>";
       html += "<h3>" + escapeHtml(step.title || "") + "</h3>";
       html += "<p>" + escapeHtml(step.description || "") + "</p>";
 
-      if (target === "waiting") {
+      if (statusOrTarget === "waiting") {
         html += '<div class="slw-hint">화면을 준비하는 중…</div>';
-        tip.innerHTML = html;
-        placeTip(tip, null);
-        return;
-      }
-      if (target === "notfound") {
-        html += '<div class="slw-hint">요소를 찾을 수 없습니다. 화면이 맞는지 확인하거나 건너뛰세요.</div>';
-        html += '<div class="slw-row"><button class="slw-btn slw-btn-primary">건너뛰기</button></div>';
-        tip.innerHTML = html;
-        placeTip(tip, null);
-        on(tip.querySelector("button"), "click", onManualNext);
-        return;
+      } else if (statusOrTarget === "notfound") {
+        html += '<div class="slw-hint">요소를 찾을 수 없습니다. 화면이 맞는지 확인해보세요.</div>';
+      } else if (step.waitFor) {
+        html += '<div class="slw-hint">' + waitHint(step.waitFor) + "</div>";
       }
 
-      if (step.waitFor) {
-        html += '<div class="slw-hint">' + waitHint(step.waitFor) + "</div>";
-      } else {
-        html += '<div class="slw-row"><button class="slw-btn slw-btn-primary">다음</button></div>';
-      }
+      html +=
+        '<div class="slw-nav"><button class="slw-btn slw-btn-ghost slw-nav-prev"' +
+        (index === 0 ? " disabled" : "") +
+        ">‹ 이전</button><button class=\"slw-btn slw-btn-primary slw-nav-next\">다음 ›</button></div>";
+
       tip.innerHTML = html;
-      placeTip(tip, target);
-      if (!step.waitFor) {
-        on(tip.querySelector("button"), "click", onManualNext);
+      placeTip(tip, statusOrTarget === "waiting" || statusOrTarget === "notfound" ? null : statusOrTarget);
+
+      var prevBtn = tip.querySelector(".slw-nav-prev");
+      if (!prevBtn.disabled) {
+        on(prevBtn, "click", function () {
+          showStep(index - 1);
+        });
       }
+      on(tip.querySelector(".slw-nav-next"), "click", function () {
+        showStep(index + 1);
+      });
     }
 
     function bindAdvance(step, target, next) {
@@ -353,8 +381,7 @@
       '</div>';
     var exit = document.createElement("button");
     exit.className = "slw-exit";
-    exit.textContent = "×";
-    exit.setAttribute("aria-label", "종료");
+    exit.textContent = "× 종료";
 
     [hl, panel, exit].forEach(function (el) {
       document.body.appendChild(el);
