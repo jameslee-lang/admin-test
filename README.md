@@ -34,6 +34,11 @@
    `title`/`description`/`waitFor`를 상황에 맞게 채웁니다.
 5. `broadcast-register.json`의 `TODO_SELECTOR_1` 같은 자리표시자를 이렇게 실제 선택자로 하나씩 교체합니다.
 
+## 플로우 내용 검증 (`.review.md`)
+JSON은 셀렉터가 섞여 있어 내용(순서/문구/누락 여부)만 검토하기엔 불편합니다. 그래서 플로우마다
+`flows/<id>.review.md`를 같이 두고, 실제 흐름과 맞는지는 그 파일에서 체크리스트처럼 검토·수정합니다.
+예: `flows/broadcast-register.review.md`. 다 고치면 JSON에 반영해달라고 요청하면 됩니다.
+
 ## 플로우 작성 방법 (스키마)
 `flows/<id>.json`:
 
