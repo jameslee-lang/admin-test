@@ -76,11 +76,17 @@
       ".slw-btn:disabled{opacity:.35;cursor:not-allowed;}",
       ".slw-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:2147483005;background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3);}",
       ".slw-pick-hl{position:fixed;z-index:2147483001;background:rgba(255,77,109,.2);border:2px solid #ff4d6d;pointer-events:none;transition:all .05s ease;}",
-      ".slw-panel{position:fixed;bottom:20px;left:20px;z-index:2147483004;width:360px;max-width:90vw;background:#fff;color:#1a1a1a;border-radius:10px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;pointer-events:auto;}",
+      ".slw-panel{position:fixed;bottom:20px;left:20px;z-index:2147483004;width:360px;max-width:90vw;max-height:82vh;overflow-y:auto;background:#fff;color:#1a1a1a;border-radius:10px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;pointer-events:auto;}",
       ".slw-panel h3{margin:0 0 10px;font-size:14px;font-weight:700;}",
       ".slw-panel label{display:block;font-size:11px;color:#888;margin:8px 0 3px;}",
       ".slw-panel textarea{width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:8px;resize:vertical;min-height:52px;}",
-      ".slw-panel .slw-row{display:flex;gap:8px;margin-top:10px;}"
+      ".slw-panel input[type=text]{width:100%;box-sizing:border-box;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;}",
+      ".slw-panel select{width:100%;box-sizing:border-box;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;background:#fff;}",
+      ".slw-panel .slw-row{display:flex;gap:8px;margin-top:10px;}",
+      ".slw-steps-list{margin-top:10px;}",
+      ".slw-step-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:#f7f7f8;border-radius:6px;margin-bottom:6px;font-size:12px;}",
+      ".slw-step-item button{border:0;background:none;color:#ff4d6d;cursor:pointer;font-size:12px;flex-shrink:0;}",
+      ".slw-picked-ctx{white-space:pre-wrap;word-break:break-all;background:#f7f7f8;border-radius:6px;padding:6px 8px;font-size:11px;color:#555;font-family:monospace;}"
     ].join("\n");
     document.head.appendChild(style);
     state.els.push(style);
@@ -359,7 +365,9 @@
     tip.style.left = Math.min(r.left, window.innerWidth - 340) + "px";
   }
 
-  // ---- 요소 선택기 모드 ----------------------------------------------------
+  // ---- 플로우 빌더 모드 ------------------------------------------------------
+  // 셀렉터를 직접 다루지 않아도 되도록, 요소를 순서대로 클릭 → 그 자리에서 제목/설명 입력 →
+  // 마지막에 완성된 flows/<id>.json 전체를 한 번에 받는 방식으로 만든다.
   function startPicker() {
     injectStyle();
 
@@ -369,16 +377,33 @@
     var panel = document.createElement("div");
     panel.className = "slw-panel";
     panel.innerHTML =
-      "<h3>요소 선택기</h3>" +
-      "<p style='margin:0 0 4px;color:#666;'>페이지 위 아무 요소에 마우스를 올리고 클릭하면 선택자가 아래에 잡힙니다.</p>" +
-      "<label>CSS Selector</label>" +
-      '<textarea class="slw-sel" readonly placeholder="요소를 클릭하세요"></textarea>' +
-      "<label>태그 / 텍스트</label>" +
-      '<textarea class="slw-ctx" readonly placeholder=""></textarea>' +
-      '<div class="slw-row">' +
-      '<button class="slw-btn slw-btn-primary slw-copy">선택자 복사</button>' +
-      '<button class="slw-btn slw-btn-ghost slw-copystep">스텝 JSON 복사</button>' +
-      '</div>';
+      "<h3>플로우 빌더</h3>" +
+      "<p style='margin:0 0 8px;color:#666;'>실제 화면 요소를 순서대로 클릭해서 스텝을 하나씩 쌓으세요. 다 만들면 아래에서 완성된 JSON을 통째로 받을 수 있습니다.</p>" +
+      "<label>플로우 ID (파일명, 영문/숫자/하이픈)</label>" +
+      '<input type="text" class="slw-flow-id" placeholder="예: broadcast-register" value="' +
+      escapeHtml(FLOW_ID || "") +
+      '">' +
+      "<label>플로우 제목</label>" +
+      '<input type="text" class="slw-flow-title" placeholder="예: 가장 기본적인 방송 등록 흐름">' +
+      '<div class="slw-steps-list"></div>' +
+      '<div class="slw-row"><button class="slw-btn slw-btn-ghost slw-add-info">+ 정보 전용 스텝 추가</button></div>' +
+      '<div class="slw-capture" style="display:none;margin-top:10px;border-top:1px solid #eee;padding-top:10px;">' +
+      "<label>선택한 요소</label>" +
+      '<div class="slw-picked-ctx"></div>' +
+      "<label>제목</label>" +
+      '<input type="text" class="slw-step-title" placeholder="예: 방송 제목 입력">' +
+      "<label>설명</label>" +
+      '<textarea class="slw-step-desc" placeholder="사용자에게 보여줄 안내문"></textarea>' +
+      "<label>다음 단계로 언제 자동으로 넘어가나요?</label>" +
+      '<select class="slw-step-waitfor"></select>' +
+      '<div class="slw-row"><button class="slw-btn slw-btn-primary slw-confirm-step">이 스텝 추가</button><button class="slw-btn slw-btn-ghost slw-cancel-step">취소</button></div>' +
+      "</div>" +
+      '<div class="slw-row" style="margin-top:14px;"><button class="slw-btn slw-btn-primary slw-finish">완성된 JSON 만들기</button></div>' +
+      '<div class="slw-output" style="display:none;margin-top:10px;">' +
+      "<label>flows/&lt;id&gt;.json 에 이 내용 전체를 붙여넣으세요</label>" +
+      '<textarea class="slw-output-json" readonly style="min-height:140px;"></textarea>' +
+      '<div class="slw-row"><button class="slw-btn slw-btn-primary slw-copy-json">전체 복사</button><button class="slw-btn slw-btn-ghost slw-download-json">파일로 다운로드</button></div>' +
+      "</div>";
     var exit = document.createElement("button");
     exit.className = "slw-exit";
     exit.textContent = "× 종료";
@@ -388,54 +413,171 @@
       state.els.push(el);
     });
 
-    var selField = panel.querySelector(".slw-sel");
-    var ctxField = panel.querySelector(".slw-ctx");
-    var lastSelector = "";
-    var lastText = "";
+    var steps = [];
+    var pendingSelector = null;
+    var capturing = true; // 캡처 폼이 열려있는 동안은 새로 요소를 잡지 않는다 (편집 중 오클릭 방지)
+
+    var stepsListEl = panel.querySelector(".slw-steps-list");
+    var captureEl = panel.querySelector(".slw-capture");
+    var pickedCtxEl = panel.querySelector(".slw-picked-ctx");
+    var titleField = panel.querySelector(".slw-step-title");
+    var descField = panel.querySelector(".slw-step-desc");
+    var waitForField = panel.querySelector(".slw-step-waitfor");
+    var outputEl = panel.querySelector(".slw-output");
+    var outputJsonEl = panel.querySelector(".slw-output-json");
+
+    var WAITFOR_WITH_SELECTOR = [
+      { value: "click", label: "클릭하면 자동으로" },
+      { value: "input", label: "입력하면 자동으로" },
+      { value: "urlChange", label: "페이지가 이동하면 자동으로" },
+      { value: "", label: "자동 진행 없음 (수동 이동만)" }
+    ];
+    var WAITFOR_INFO_ONLY = [
+      { value: "urlChange", label: "페이지가 이동하면 자동으로" },
+      { value: "", label: "자동 진행 없음 (수동 이동만)" }
+    ];
+
+    function fillWaitForOptions(hasSelector) {
+      var opts = hasSelector ? WAITFOR_WITH_SELECTOR : WAITFOR_INFO_ONLY;
+      waitForField.innerHTML = opts
+        .map(function (o) {
+          return '<option value="' + o.value + '">' + o.label + "</option>";
+        })
+        .join("");
+    }
+
+    function renderStepsList() {
+      if (!steps.length) {
+        stepsListEl.innerHTML = '<p style="color:#aaa;margin:4px 0;">아직 추가된 스텝이 없습니다.</p>';
+        return;
+      }
+      stepsListEl.innerHTML = steps
+        .map(function (s, i) {
+          return (
+            '<div class="slw-step-item"><span>' +
+            (i + 1) +
+            ". " +
+            escapeHtml(s.title || "(제목 없음)") +
+            (s.selector ? "" : " · 정보전용") +
+            '</span><button data-i="' +
+            i +
+            '">삭제</button></div>'
+          );
+        })
+        .join("");
+      Array.prototype.forEach.call(stepsListEl.querySelectorAll("button"), function (btn) {
+        on(btn, "click", function () {
+          steps.splice(Number(btn.getAttribute("data-i")), 1);
+          renderStepsList();
+        });
+      });
+    }
+    renderStepsList();
+
+    function openCapture(selector, ctx) {
+      pendingSelector = selector;
+      capturing = false;
+      hl.style.display = "none";
+      pickedCtxEl.textContent = selector ? ctx : "(요소 없음 — 정보 전용 안내 스텝)";
+      titleField.value = "";
+      descField.value = "";
+      fillWaitForOptions(!!selector);
+      captureEl.style.display = "block";
+      titleField.focus();
+    }
+
+    function closeCapture() {
+      captureEl.style.display = "none";
+      capturing = true;
+    }
 
     function isPluginNode(node) {
       return panel.contains(node) || node === exit || node === hl || node === panel;
     }
 
-    on(document, "mousemove", function (e) {
-      var t = e.target;
-      if (isPluginNode(t)) {
-        hl.style.display = "none";
-        return;
-      }
-      var r = t.getBoundingClientRect();
-      hl.style.display = "block";
-      hl.style.top = r.top + "px";
-      hl.style.left = r.left + "px";
-      hl.style.width = r.width + "px";
-      hl.style.height = r.height + "px";
-    }, true);
+    on(
+      document,
+      "mousemove",
+      function (e) {
+        if (!capturing) return;
+        var t = e.target;
+        if (isPluginNode(t)) {
+          hl.style.display = "none";
+          return;
+        }
+        var r = t.getBoundingClientRect();
+        hl.style.display = "block";
+        hl.style.top = r.top + "px";
+        hl.style.left = r.left + "px";
+        hl.style.width = r.width + "px";
+        hl.style.height = r.height + "px";
+      },
+      true
+    );
 
-    on(document, "click", function (e) {
-      var t = e.target;
-      if (isPluginNode(t)) return;
-      // 선택 대상의 실제 클릭 동작(페이지 이동 등)을 막아 선택만 되도록 한다.
-      e.preventDefault();
-      e.stopPropagation();
-      lastSelector = buildSelector(t);
-      lastText = (t.textContent || "").trim().slice(0, 60);
-      selField.value = lastSelector;
-      ctxField.value = "<" + t.tagName.toLowerCase() + "> " + lastText;
-    }, true);
+    on(
+      document,
+      "click",
+      function (e) {
+        var t = e.target;
+        if (isPluginNode(t)) return;
+        // 도구가 켜져 있는 동안은 실제 어드민 클릭(제출/이동 등)이 절대 일어나지 않도록 항상 막는다.
+        e.preventDefault();
+        e.stopPropagation();
+        if (!capturing) return; // 폼 작성 중에는 막기만 하고 새로 선택하지는 않는다
+        var selector = buildSelector(t);
+        var text = (t.textContent || "").trim().slice(0, 60);
+        openCapture(selector, "<" + t.tagName.toLowerCase() + "> " + text + "\n" + selector);
+      },
+      true
+    );
 
-    on(panel.querySelector(".slw-copy"), "click", function () {
-      copyText(lastSelector);
-      toast("선택자를 복사했습니다.");
+    on(panel.querySelector(".slw-add-info"), "click", function () {
+      openCapture(null, "");
     });
-    on(panel.querySelector(".slw-copystep"), "click", function () {
+
+    on(panel.querySelector(".slw-cancel-step"), "click", closeCapture);
+
+    on(panel.querySelector(".slw-confirm-step"), "click", function () {
+      var w = waitForField.value;
       var step = {
-        selector: lastSelector,
-        title: "제목을 입력하세요",
-        description: "설명을 입력하세요",
-        waitFor: { type: "click" }
+        selector: pendingSelector,
+        title: titleField.value.trim() || "(제목 없음)",
+        description: descField.value.trim()
       };
-      copyText(JSON.stringify(step, null, 2));
-      toast("스텝 JSON을 복사했습니다.");
+      if (w) step.waitFor = { type: w };
+      steps.push(step);
+      renderStepsList();
+      closeCapture();
+      toast("스텝을 추가했습니다 (" + steps.length + "개).");
+    });
+
+    on(panel.querySelector(".slw-finish"), "click", function () {
+      var id = panel.querySelector(".slw-flow-id").value.trim() || "new-flow";
+      var title = panel.querySelector(".slw-flow-title").value.trim();
+      var flow = { id: id, title: title, steps: steps };
+      outputJsonEl.value = JSON.stringify(flow, null, 2);
+      outputEl.style.display = "block";
+    });
+
+    on(panel.querySelector(".slw-copy-json"), "click", function () {
+      copyText(outputJsonEl.value);
+      toast("JSON을 복사했습니다.");
+    });
+
+    on(panel.querySelector(".slw-download-json"), "click", function () {
+      var id = panel.querySelector(".slw-flow-id").value.trim() || "new-flow";
+      var blob = new Blob([outputJsonEl.value], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = id + ".json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
     });
 
     on(exit, "click", teardown);
