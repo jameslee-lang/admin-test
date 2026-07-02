@@ -18,7 +18,7 @@
 
   // jsDelivr URL을 조립할 때 사용할 기본값. index.html/북마클릿이 넘겨주는 값이 우선한다.
   var DEFAULT_FLOW_BASE =
-    "https://cdn.jsdelivr.net/gh/jameslee-lang/admin-test@main/admin-walkthrough/flows/";
+    "https://cdn.jsdelivr.net/gh/jameslee-lang/admin-test@main/flows/";
 
   var cfg = window.__SLW_CONFIG__ || {};
   var MODE = cfg.mode === "picker" ? "picker" : "walkthrough";

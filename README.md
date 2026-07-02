@@ -87,10 +87,11 @@
 
 ## 폴더 구조
 ```
-admin-walkthrough/
-  engine.js                    런타임 전체 (워크스루 모드 + 선택기 모드)
-  index.html                   북마클릿 생성 + 사용 안내 랜딩 페이지
-  flows/
-    broadcast-register.json    방송 등록 플로우 (선택자는 아직 자리표시자)
-  README.md                    이 문서
+engine.js                    런타임 전체 (워크스루 모드 + 선택기 모드)
+index.html                   북마클릿 생성 + 사용 안내 랜딩 페이지
+flows/
+  broadcast-register.json    방송 등록 플로우
+README.md                    이 문서
 ```
+(GitHub 레포 `jameslee-lang/admin-test`의 **루트**가 곧 이 폴더입니다 — `engine.js`/`flows/`가 레포 최상위에 있어야
+`index.html`의 jsDelivr URL 조립이 맞습니다. 하위 폴더에 넣으면 경로를 그만큼 더 바꿔야 합니다.)
