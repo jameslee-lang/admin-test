@@ -71,7 +71,7 @@
       ".slw-btn{border:0;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;}",
       ".slw-btn-primary{background:#ff4d6d;color:#fff;}",
       ".slw-btn-ghost{background:#f0f0f0;color:#555;}",
-      ".slw-exit{position:fixed;bottom:20px;right:20px;z-index:2147483004;background:#1a1a1a;color:#fff;border:0;border-radius:24px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;}",
+      ".slw-exit{position:fixed;top:20px;right:20px;z-index:2147483004;width:36px;height:36px;background:#1a1a1a;color:#fff;border:0;border-radius:50%;padding:0;font-size:20px;line-height:1;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;}",
       ".slw-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:2147483005;background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3);}",
       ".slw-pick-hl{position:fixed;z-index:2147483001;background:rgba(255,77,109,.2);border:2px solid #ff4d6d;pointer-events:none;transition:all .05s ease;}",
       ".slw-panel{position:fixed;bottom:20px;left:20px;z-index:2147483004;width:360px;max-width:90vw;background:#fff;color:#1a1a1a;border-radius:10px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;pointer-events:auto;}",
@@ -170,7 +170,8 @@
     tip.className = "slw-tip";
     var exit = document.createElement("button");
     exit.className = "slw-exit";
-    exit.textContent = "종료";
+    exit.textContent = "×";
+    exit.setAttribute("aria-label", "종료");
     [dim, ring, tip, exit].forEach(function (el) {
       document.body.appendChild(el);
       state.els.push(el);
@@ -345,7 +346,8 @@
       '</div>';
     var exit = document.createElement("button");
     exit.className = "slw-exit";
-    exit.textContent = "종료";
+    exit.textContent = "×";
+    exit.setAttribute("aria-label", "종료");
 
     [hl, panel, exit].forEach(function (el) {
       document.body.appendChild(el);
