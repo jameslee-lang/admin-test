@@ -202,9 +202,14 @@
       if (!step.selector) {
         ring.style.display = "none";
         dim.style.display = "none";
-        renderTip(step, index, steps.length, null, function () {
+        var advance = function () {
           showStep(index + 1);
-        });
+        };
+        renderTip(step, index, steps.length, null, advance);
+        // urlChange 는 특정 요소가 아니라 location.href 를 보는 조건이라 selector 없이도 걸 수 있다.
+        if (step.waitFor && step.waitFor.type === "urlChange") {
+          bindAdvance(step, null, advance);
+        }
         return;
       }
 
@@ -262,6 +267,8 @@
     function bindAdvance(step, target, next) {
       var w = step.waitFor;
       if (!w) return;
+      // click/input 은 실제 요소가 있어야 리스너를 걸 수 있다 (selector 없는 정보성 단계에서 잘못 설정된 경우 방지).
+      if (!target && (w.type === "click" || w.type === "input")) return;
       if (w.type === "click") {
         on(target, "click", function () {
           setTimeout(next, 200);
