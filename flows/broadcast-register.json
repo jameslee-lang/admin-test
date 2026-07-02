@@ -1,7 +1,7 @@
 {
   "id": "broadcast-register",
   "title": "가장 기본적인 방송 등록 흐름",
-  "_note": "아래 selector 값(TODO_SELECTOR_*)은 모두 임시 자리표시자입니다. 실제 어드민 화면에서 '요소 선택기' 북마클릿으로 각 요소를 클릭해 CSS 선택자를 뽑은 뒤 이 값을 교체하세요. selector가 채워지기 전까지 이 플로우는 시연/테스트 용도로만 동작합니다.",
+  "_note": "실제 어드민(adm.shoplive.cloud) 캠페인 편집 화면을 Claude in Chrome으로 직접 확인해 셀렉터를 채웠습니다. '방송 등록 메뉴로 이동' 단계는 목록 화면을 열어보지 않아 셀렉터 없이 안내 텍스트만 있는 정보 단계로 남겨뒀습니다 — 필요하면 목록 화면에서 '요소 선택기' 북마클릿으로 채울 수 있습니다. '상품 연결' 관련 클래스는 styled-components 해시라 배포마다 바뀔 수 있어 상대적으로 불안정합니다 (README 참고).",
   "steps": [
     {
       "selector": null,
@@ -9,31 +9,37 @@
       "description": "지금부터 방송을 하나 처음부터 끝까지 만들어 봅니다. 화면 위에서 강조되는 요소를 따라 직접 클릭/입력해 보세요."
     },
     {
-      "selector": "TODO_SELECTOR_1",
+      "selector": null,
       "title": "방송 등록 메뉴로 이동",
-      "description": "좌측 메뉴에서 '방송' 영역으로 들어가 '방송 추가' 버튼을 누릅니다.",
-      "waitFor": { "type": "click" }
+      "description": "좌측 메뉴에서 '방송' 영역으로 들어가 '방송 추가' 버튼을 눌러 새 방송 편집 화면을 엽니다.",
+      "waitFor": { "type": "urlChange", "value": "/campaigns2/" }
     },
     {
-      "selector": "TODO_SELECTOR_2",
+      "selector": "#campaign-form_title",
       "title": "방송 제목 입력",
       "description": "시청자가 처음 보는 제목입니다. 어떤 상품·혜택인지 바로 보이게 적어 주세요.",
       "waitFor": { "type": "input" }
     },
     {
-      "selector": "TODO_SELECTOR_3",
+      "selector": "#campaign-form_scheduledAt input[placeholder=\"날짜\"]",
       "title": "방송 시작 일시 설정",
-      "description": "방송을 언제 시작할지 예정 시간을 지정합니다. 나중에 수정해도 배포된 방송 링크는 바뀌지 않습니다.",
+      "description": "방송을 언제 시작할지 예정 날짜와 시각을 지정합니다 (날짜 옆 시각 입력란도 함께 채워주세요). 나중에 수정해도 배포된 방송 링크는 바뀌지 않습니다.",
       "waitFor": { "type": "input" }
     },
     {
-      "selector": "TODO_SELECTOR_4",
-      "title": "상품 연결",
-      "description": "방송에서 소개할 상품을 추가합니다. 상품이 없으면 시청자 화면에 아무것도 뜨지 않으니 꼭 하나 이상 넣어 주세요.",
+      "selector": "#rc-tabs-0-tab-goods",
+      "title": "상품 탭으로 이동",
+      "description": "상단 탭에서 '상품'을 클릭합니다. 화면이 좁으면 탭 목록의 '···' 더보기 안에 숨어 있을 수 있어요.",
       "waitFor": { "type": "click" }
     },
     {
-      "selector": "TODO_SELECTOR_5",
+      "selector": "button.add-group.group",
+      "title": "상품 연결",
+      "description": "'방송에 상품 추가' 버튼을 눌러 소개할 상품을 연결합니다. 상품이 없으면 시청자 화면에 아무것도 뜨지 않으니 꼭 하나 이상 넣어 주세요.",
+      "waitFor": { "type": "click" }
+    },
+    {
+      "selector": "#campaign-form .save-button-wrap button",
       "title": "등록 완료",
       "description": "입력한 내용을 저장해 방송 틀을 만듭니다. 세부 설정은 언제든 다시 들어와 수정할 수 있습니다.",
       "waitFor": { "type": "click" }
