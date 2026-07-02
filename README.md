@@ -74,12 +74,16 @@ JSON은 셀렉터가 섞여 있어 내용(순서/문구/누락 여부)만 검토
 
 새 플로우를 추가하면 `index.html`의 `<select id="flow">`에 `<option>`을 하나 더 넣어 주세요.
 
-## jsDelivr 캐싱 / 버전 관리 (`?v=` 올리기)
-- 북마클릿은 `engine.js`를 jsDelivr GitHub CDN에서 불러옵니다:
-  `https://cdn.jsdelivr.net/gh/<user>/<repo>@main/admin-walkthrough/engine.js?v1`
-- jsDelivr는 파일을 캐시하므로, 레포를 고쳐도 바로 반영 안 될 수 있습니다.
-- `index.html`의 `VERSION` 값을 `v1` → `v2` … 로 **올릴 때마다** 캐시가 무효화되어 최신 코드가 로드됩니다.
-  릴리스(엔진/스타일 변경) 때마다 이 값을 올리고 북마클릿을 다시 저장(또는 재드래그)하세요.
+## jsDelivr 캐싱 / 갱신
+- 북마클릿은 `engine.js`와 플로우 JSON을 jsDelivr GitHub CDN에서 불러옵니다:
+  `https://cdn.jsdelivr.net/gh/<user>/<repo>@main/engine.js`
+- jsDelivr는 파일을 한동안 캐시하므로, 레포를 고쳐도 바로 반영 안 될 수 있습니다.
+- **`index.html`의 `VERSION`(`?v1`, `?v2`...) 은 사람이 보기 위한 라벨일 뿐, jsDelivr는 쿼리스트링을
+  캐시 키로 보지 않아서 실제로는 캐시를 무효화하지 못합니다** (직접 확인한 사실 — 값을 올려도 예전 파일이
+  계속 나옴).
+- 실제로 즉시 반영하려면 `index.html`의 **"캐시 갱신" 버튼**을 누르세요. `purge.jsdelivr.net`에 요청을
+  보내 `engine.js`와 선택된 플로우 JSON의 캐시를 강제로 비웁니다. 누르지 않아도 시간이 지나면(보통 최대
+  수 시간~반나절) 저절로 갱신되지만, 테스트할 땐 버튼을 누르는 게 확실합니다.
 - `Date.now()`/`Math.random()`을 쓰지 않는 이유: 파일이 오프라인에서 작성·커밋되므로, 커밋된 파일 안에는
   실행 시점 값이 아니라 정적인 버전 문자열만 두어야 재현 가능합니다.
 
