@@ -46,9 +46,18 @@
 </p>
 
 <h2>1. 실행할 플로우 선택</h2>
-<p class="hint">선택한 플로우가 아래 "워크스루 실행" 북마클릿에 반영됩니다.</p>
+<p class="hint">
+  선택한 플로우가 아래 "워크스루 실행" 북마클릿에 반영됩니다. <b>필수</b>는 방송 시작 전 안 하면 사고(욕설·스팸
+  노출 등)로 이어질 수 있는 것만 담은 짧은 흐름이고, <b>선택 카테고리</b>는 몰라도 당장 문제는 없는 기능들을
+  필요할 때 골라 보는 흐름입니다. 새 카테고리는 "플로우 빌더"로 만들어서 이 목록에 옵션만 추가하면 됩니다.
+</p>
 <select id="flow" onchange="rebuild()">
-  <option value="broadcast-register" selected>가장 기본적인 방송 등록 흐름</option>
+  <optgroup label="필수">
+    <option value="broadcast-register" selected>방송 등록 필수 흐름 (제목·상품·금칙어)</option>
+  </optgroup>
+  <optgroup label="선택 카테고리">
+    <option value="popup-setup">팝업으로 시청자 액션 유도하기</option>
+  </optgroup>
 </select>
 
 <h2>2. 북마클릿 저장 (드래그)</h2>

@@ -11,6 +11,11 @@
   // 같은 오리진이면 localStorage가 유지되므로 흐름 중단 없이 이어서 진행할 수 있다.
   var STORAGE_KEY = "shoplive_walkthrough_progress";
 
+  // 스텝별로 실제 완료했는지/그냥 넘어갔는지/요소를 못 찾았는지를 기록해둔다. "필수" 스텝(예: 금칙어)을
+  // 자유 이동으로 건너뛸 수 있게 해준 대신, 최소한 "건너뛴 적이 있다"는 사실은 남겨서 CSM이 나중에
+  // 브라우저 콘솔에서 확인하거나 고객 문의 시 참고할 수 있게 한다 — 이동 자유와 추적 가능성을 분리.
+  var STATUS_KEY_PREFIX = "shoplive_walkthrough_status_";
+
   // 실제 어드민은 React/Vue 기반이라 대상 요소가 즉시 존재하지 않을 수 있다. querySelector가
   // 처음에 실패해도 곧 렌더링될 수 있으므로 MutationObserver로 기다린다. 무한 대기를 막기 위해
   // 타임아웃을 두고, 초과하면 "요소를 찾을 수 없습니다" 안내로 흐름을 막지 않는다.
@@ -172,6 +177,30 @@
       startIndex = progress.stepIndex;
     }
 
+    // "done"(자동 진행 조건이 실제로 충족됨) / "skipped"(그냥 다음으로 넘어감) / "notfound"(요소를 못 찾음).
+    // 한 번 "done"이 되면 나중에 "skipped"로 되돌리지 않는다 — 실제로 했던 걸 안 한 것처럼 기록하면 안 되니까.
+    var stepStatus = {};
+
+    function markStep(index, status) {
+      if (stepStatus[index] === "done" && status !== "done") return;
+      stepStatus[index] = status;
+    }
+
+    function saveStatus(finished) {
+      try {
+        localStorage.setItem(
+          STATUS_KEY_PREFIX + flow.id,
+          JSON.stringify({
+            flowId: flow.id,
+            totalSteps: steps.length,
+            stepStatus: stepStatus,
+            finished: finished,
+            updatedAt: Date.now()
+          })
+        );
+      } catch (e) {}
+    }
+
     var dim = document.createElement("div");
     dim.className = "slw-dim";
     var ring = document.createElement("div");
@@ -188,6 +217,7 @@
 
     on(exit, "click", function () {
       clearProgress();
+      saveStatus(false);
       teardown();
     });
 
@@ -221,6 +251,7 @@
 
       if (index >= steps.length) {
         clearProgress();
+        saveStatus(true);
         ring.style.display = "none";
         dim.style.display = "none";
         tip.innerHTML =
@@ -245,6 +276,7 @@
         // urlChange 는 특정 요소가 아니라 location.href 를 보는 조건이라 selector 없이도 걸 수 있다.
         if (step.waitFor && step.waitFor.type === "urlChange") {
           bindAdvance(step, null, function () {
+            markStep(index, "done");
             showStep(index + 1);
           });
         }
@@ -254,12 +286,14 @@
       renderNav(step, index, steps.length, "waiting");
       waitForElement(step.selector, ELEMENT_WAIT_TIMEOUT_MS, function (target) {
         if (!target) {
+          markStep(index, "notfound");
           renderNav(step, index, steps.length, "notfound");
           return;
         }
         highlight(target, dim, ring);
         renderNav(step, index, steps.length, target);
         bindAdvance(step, target, function () {
+          markStep(index, "done");
           showStep(index + 1);
         });
       });
@@ -296,6 +330,9 @@
         });
       }
       on(tip.querySelector(".slw-nav-next"), "click", function () {
+        // waitFor가 없는 단계는 그냥 보고 넘어가는 것 자체가 "완료"다. waitFor가 있는데
+        // 아직 "done"으로 안 잡혔다면, 실제 동작 없이 넘어간 것이므로 "skipped"로 남긴다.
+        markStep(index, step.waitFor ? "skipped" : "done");
         showStep(index + 1);
       });
     }

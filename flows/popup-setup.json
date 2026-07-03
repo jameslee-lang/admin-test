@@ -1,0 +1,25 @@
+{
+  "id": "popup-setup",
+  "title": "팝업으로 시청자 액션 유도하기 (선택)",
+  "category": "선택 카테고리",
+  "_note": "'선택 카테고리' 트랙 1호 예시입니다 — 방송 등록 필수 흐름(broadcast-register)과 달리, 이건 몰라도 방송 사고로 이어지지 않는 영역이라 필요할 때 골라 보는 방식입니다. '방송에 팝업 추가' 버튼은 styled-components 해시 클래스에 #campaign-form 기준 긴 nth-of-type 경로라 배포마다 깨지기 쉽습니다 — 실제로 안 눌러본 상태라 그 다음(팝업 종류 선택 이후) 단계는 아직 없습니다. 담당 CSM이 '플로우 빌더'로 직접 이어서 채워주세요.",
+  "steps": [
+    {
+      "selector": null,
+      "title": "팝업이 필요한 이유",
+      "description": "공지·쿠폰·배너 팝업으로 시청자에게 원하는 행동(구매, 쿠폰 등록 등)을 유도할 수 있습니다. 방송 진행에 꼭 필요한 건 아니니, 필요할 때 이 흐름을 다시 열어보세요."
+    },
+    {
+      "selector": "[id$=\"-tab-popup\"]",
+      "title": "팝업 탭으로 이동",
+      "description": "상단 탭에서 '팝업'을 클릭합니다. 화면이 좁으면 '···' 더보기 안에 숨어 있을 수 있어요.",
+      "waitFor": { "type": "click" }
+    },
+    {
+      "selector": "#campaign-form > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(10) > div > div:nth-of-type(1) > div > button",
+      "title": "팝업 추가",
+      "description": "'방송에 팝업 추가'를 누르면 팝업 종류(공지/쿠폰/배너)를 고를 수 있습니다. 이 고객사에 맞는 종류 하나를 골라 미리보기를 보면서 직접 설정해보세요.",
+      "waitFor": { "type": "click" }
+    }
+  ]
+}
