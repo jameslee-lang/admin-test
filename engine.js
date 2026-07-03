@@ -78,6 +78,8 @@
       ".slw-pick-hl{position:fixed;z-index:2147483001;background:rgba(255,77,109,.2);border:2px solid #ff4d6d;pointer-events:none;transition:all .05s ease;}",
       ".slw-panel{position:fixed;bottom:20px;left:20px;z-index:2147483004;width:360px;max-width:90vw;max-height:82vh;overflow-y:auto;background:#fff;color:#1a1a1a;border-radius:10px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;pointer-events:auto;}",
       ".slw-panel h3{margin:0 0 10px;font-size:14px;font-weight:700;}",
+      ".slw-drag-handle{cursor:move;user-select:none;}",
+      ".slw-step-item .slw-edit-btn{color:#555;margin-right:8px;}",
       ".slw-panel label{display:block;font-size:11px;color:#888;margin:8px 0 3px;}",
       ".slw-panel textarea{width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:8px;resize:vertical;min-height:52px;}",
       ".slw-panel input[type=text]{width:100%;box-sizing:border-box;font-size:12px;border:1px solid #ddd;border-radius:6px;padding:7px 8px;}",
@@ -377,7 +379,7 @@
     var panel = document.createElement("div");
     panel.className = "slw-panel";
     panel.innerHTML =
-      "<h3>플로우 빌더</h3>" +
+      "<h3 class=\"slw-drag-handle\" title=\"드래그해서 옮기기\">⠿ 플로우 빌더</h3>" +
       "<p style='margin:0 0 8px;color:#666;'>실제 화면 요소를 순서대로 클릭해서 스텝을 하나씩 쌓으세요. 다 만들면 아래에서 완성된 JSON을 통째로 받을 수 있습니다.</p>" +
       "<label>플로우 ID (파일명, 영문/숫자/하이픈)</label>" +
       '<input type="text" class="slw-flow-id" placeholder="예: broadcast-register" value="' +
@@ -417,8 +419,10 @@
     var steps = [];
     var pendingSelector = null;
     var pendingTargetEl = null; // 실제로 다시 클릭해서 다음 화면으로 넘어갈 때 재사용할 DOM 참조
+    var editingIndex = null; // null이면 새 스텝 추가 중, 숫자면 그 인덱스의 기존 스텝을 고치는 중
     var capturing = true; // 캡처 폼이 열려있는 동안은 새로 요소를 잡지 않는다 (편집 중 오클릭 방지)
     var passThroughNext = false; // true인 동안만 다음 클릭 1번을 실제로 통과시킨다 (다음 화면 이동용)
+    var dragState = null; // 패널을 드래그로 옮기는 동안의 오프셋 (패널이 화면 요소를 가릴 때 옮기기 위함)
 
     var stepsListEl = panel.querySelector(".slw-steps-list");
     var captureEl = panel.querySelector(".slw-capture");
@@ -431,6 +435,7 @@
     var waitForField = panel.querySelector(".slw-step-waitfor");
     var outputEl = panel.querySelector(".slw-output");
     var outputJsonEl = panel.querySelector(".slw-output-json");
+    var confirmStepBtn = panel.querySelector(".slw-confirm-step");
 
     // 방송 만들기처럼 여러 화면(SPA 라우트)을 오가며 스텝을 쌓는 도중 혹시라도 도구가 다시
     // 주입되거나 새로고침되어도 지금까지 쌓은 스텝을 잃지 않도록 localStorage에 같이 저장한다.
@@ -487,13 +492,20 @@
             ". " +
             escapeHtml(s.title || "(제목 없음)") +
             (s.selector ? "" : " · 정보전용") +
-            '</span><button data-i="' +
+            '</span><span><button class="slw-edit-btn" data-i="' +
             i +
-            '">삭제</button></div>'
+            '">수정</button><button class="slw-del-btn" data-i="' +
+            i +
+            '">삭제</button></span></div>'
           );
         })
         .join("");
-      Array.prototype.forEach.call(stepsListEl.querySelectorAll("button"), function (btn) {
+      Array.prototype.forEach.call(stepsListEl.querySelectorAll(".slw-edit-btn"), function (btn) {
+        on(btn, "click", function () {
+          openCaptureForEdit(Number(btn.getAttribute("data-i")));
+        });
+      });
+      Array.prototype.forEach.call(stepsListEl.querySelectorAll(".slw-del-btn"), function (btn) {
         on(btn, "click", function () {
           steps.splice(Number(btn.getAttribute("data-i")), 1);
           renderStepsList();
@@ -512,6 +524,7 @@
     renderStepsList();
 
     function openCapture(selector, ctx) {
+      editingIndex = null;
       pendingSelector = selector;
       pendingTargetEl = null;
       capturing = false;
@@ -521,6 +534,28 @@
       descField.value = "";
       fillWaitForOptions(!!selector);
       confirmNavRowEl.style.display = selector ? "block" : "none";
+      confirmStepBtn.textContent = "이 스텝 추가";
+      captureEl.style.display = "block";
+      titleField.focus();
+    }
+
+    // 이미 추가된 스텝의 제목/설명/자동 진행 조건을 고친다. 요소를 다시 클릭해서 셀렉터 자체를
+    // 바꾸는 건 지원하지 않는다 — 셀렉터를 바꾸고 싶으면 삭제 후 새로 캡처하는 편이 명확하다.
+    function openCaptureForEdit(index) {
+      var step = steps[index];
+      editingIndex = index;
+      pendingSelector = step.selector;
+      pendingTargetEl = null;
+      capturing = false;
+      hl.style.display = "none";
+      pickedCtxEl.textContent = step.selector || "(요소 없음 — 정보 전용 안내 스텝)";
+      titleField.value = step.title === "(제목 없음)" ? "" : step.title || "";
+      descField.value = step.description || "";
+      fillWaitForOptions(!!step.selector);
+      waitForField.value = (step.waitFor && step.waitFor.type) || "";
+      // 편집 중엔 "실제로 클릭해서 이동"을 다시 실행하지 않는다 — 이미 지나온 화면을 또 넘기면 혼란만 준다.
+      confirmNavRowEl.style.display = "none";
+      confirmStepBtn.textContent = "수정 완료";
       captureEl.style.display = "block";
       titleField.focus();
     }
@@ -528,17 +563,46 @@
     function closeCapture() {
       captureEl.style.display = "none";
       capturing = true;
+      editingIndex = null;
+      confirmStepBtn.textContent = "이 스텝 추가";
     }
 
     function isPluginNode(node) {
       return panel.contains(node) || node === exit || node === hl || node === panel;
     }
 
+    // 패널이 어드민 화면의 필요한 부분을 가릴 때 옮길 수 있도록 제목(⠿ 플로우 빌더)을 드래그 핸들로 쓴다.
+    var dragHandle = panel.querySelector(".slw-drag-handle");
+    on(dragHandle, "mousedown", function (e) {
+      var rect = panel.getBoundingClientRect();
+      dragState = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+      panel.style.left = rect.left + "px";
+      panel.style.top = rect.top + "px";
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      e.preventDefault();
+    });
     on(
       document,
       "mousemove",
       function (e) {
-        if (!capturing) return;
+        if (!dragState) return;
+        var maxLeft = window.innerWidth - panel.offsetWidth - 4;
+        var maxTop = window.innerHeight - panel.offsetHeight - 4;
+        panel.style.left = Math.min(Math.max(0, e.clientX - dragState.dx), Math.max(0, maxLeft)) + "px";
+        panel.style.top = Math.min(Math.max(0, e.clientY - dragState.dy), Math.max(0, maxTop)) + "px";
+      },
+      true
+    );
+    on(document, "mouseup", function () {
+      dragState = null;
+    });
+
+    on(
+      document,
+      "mousemove",
+      function (e) {
+        if (!capturing || dragState) return;
         var t = e.target;
         if (isPluginNode(t)) {
           hl.style.display = "none";
@@ -614,12 +678,18 @@
       target.click();
     });
 
-    on(panel.querySelector(".slw-confirm-step"), "click", function () {
-      steps.push(buildPendingStep());
+    on(confirmStepBtn, "click", function () {
+      var wasEditingIndex = editingIndex;
+      var step = buildPendingStep();
+      if (wasEditingIndex !== null) {
+        steps[wasEditingIndex] = step;
+      } else {
+        steps.push(step);
+      }
       renderStepsList();
       saveDraft();
       closeCapture();
-      toast("스텝을 추가했습니다 (" + steps.length + "개).");
+      toast(wasEditingIndex !== null ? "스텝을 수정했습니다." : "스텝을 추가했습니다 (" + steps.length + "개).");
     });
 
     on(panel.querySelector(".slw-finish"), "click", function () {
