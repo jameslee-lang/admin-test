@@ -597,7 +597,10 @@
 
     on(panel.querySelector(".slw-confirm-step-nav"), "click", function () {
       var step = buildPendingStep();
-      var target = pendingTargetEl;
+      // 폼을 채우는 몇 초 사이에 SPA가 그 부분을 다시 그리면 캡처해둔 DOM 참조(pendingTargetEl)가
+      // 화면에서 떨어져 나갈 수 있다. 그래서 클릭하는 바로 그 순간 셀렉터로 다시 찾은 요소를
+      // 우선 쓰고, 어떤 이유로든 못 찾을 때만 예전 참조로 대체 시도한다.
+      var target = (pendingSelector && document.querySelector(pendingSelector)) || pendingTargetEl;
       steps.push(step);
       renderStepsList();
       saveDraft();
