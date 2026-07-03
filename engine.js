@@ -397,6 +397,7 @@
       "<label>다음 단계로 언제 자동으로 넘어가나요?</label>" +
       '<select class="slw-step-waitfor"></select>' +
       '<div class="slw-row"><button class="slw-btn slw-btn-primary slw-confirm-step">이 스텝 추가</button><button class="slw-btn slw-btn-ghost slw-cancel-step">취소</button></div>' +
+      '<div class="slw-row slw-confirm-nav-row" style="display:none;"><button class="slw-btn slw-btn-primary slw-confirm-step-nav">스텝 추가 + 실제로 클릭해서 다음 화면 이동</button></div>' +
       "</div>" +
       '<div class="slw-row" style="margin-top:14px;"><button class="slw-btn slw-btn-primary slw-finish">완성된 JSON 만들기</button></div>' +
       '<div class="slw-output" style="display:none;margin-top:10px;">' +
@@ -415,16 +416,43 @@
 
     var steps = [];
     var pendingSelector = null;
+    var pendingTargetEl = null; // 실제로 다시 클릭해서 다음 화면으로 넘어갈 때 재사용할 DOM 참조
     var capturing = true; // 캡처 폼이 열려있는 동안은 새로 요소를 잡지 않는다 (편집 중 오클릭 방지)
+    var passThroughNext = false; // true인 동안만 다음 클릭 1번을 실제로 통과시킨다 (다음 화면 이동용)
 
     var stepsListEl = panel.querySelector(".slw-steps-list");
     var captureEl = panel.querySelector(".slw-capture");
+    var confirmNavRowEl = panel.querySelector(".slw-confirm-nav-row");
     var pickedCtxEl = panel.querySelector(".slw-picked-ctx");
+    var flowIdField = panel.querySelector(".slw-flow-id");
+    var flowTitleField = panel.querySelector(".slw-flow-title");
     var titleField = panel.querySelector(".slw-step-title");
     var descField = panel.querySelector(".slw-step-desc");
     var waitForField = panel.querySelector(".slw-step-waitfor");
     var outputEl = panel.querySelector(".slw-output");
     var outputJsonEl = panel.querySelector(".slw-output-json");
+
+    // 방송 만들기처럼 여러 화면(SPA 라우트)을 오가며 스텝을 쌓는 도중 혹시라도 도구가 다시
+    // 주입되거나 새로고침되어도 지금까지 쌓은 스텝을 잃지 않도록 localStorage에 같이 저장한다.
+    var DRAFT_KEY = "shoplive_builder_draft";
+
+    function saveDraft() {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({ id: flowIdField.value, title: flowTitleField.value, steps: steps })
+        );
+      } catch (e) {}
+    }
+
+    function loadDraft() {
+      try {
+        var raw = localStorage.getItem(DRAFT_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
 
     var WAITFOR_WITH_SELECTOR = [
       { value: "click", label: "클릭하면 자동으로" },
@@ -469,19 +497,30 @@
         on(btn, "click", function () {
           steps.splice(Number(btn.getAttribute("data-i")), 1);
           renderStepsList();
+          saveDraft();
         });
       });
+    }
+
+    var draft = loadDraft();
+    if (draft && draft.steps && draft.steps.length) {
+      steps = draft.steps;
+      flowIdField.value = draft.id || flowIdField.value;
+      flowTitleField.value = draft.title || "";
+      toast("이전에 만들던 초안을 불러왔습니다 (" + steps.length + "개 스텝).");
     }
     renderStepsList();
 
     function openCapture(selector, ctx) {
       pendingSelector = selector;
+      pendingTargetEl = null;
       capturing = false;
       hl.style.display = "none";
       pickedCtxEl.textContent = selector ? ctx : "(요소 없음 — 정보 전용 안내 스텝)";
       titleField.value = "";
       descField.value = "";
       fillWaitForOptions(!!selector);
+      confirmNavRowEl.style.display = selector ? "block" : "none";
       captureEl.style.display = "block";
       titleField.focus();
     }
@@ -521,12 +560,19 @@
       function (e) {
         var t = e.target;
         if (isPluginNode(t)) return;
-        // 도구가 켜져 있는 동안은 실제 어드민 클릭(제출/이동 등)이 절대 일어나지 않도록 항상 막는다.
+        // "스텝 추가 + 다음 화면 이동"이 방금 이 요소를 실제로 다시 클릭시킨 경우엔 딱 1번만
+        // 그대로 통과시켜서 실제 어드민이 그 클릭을 처리하게 한다 (예: 페이지 이동).
+        if (passThroughNext) {
+          passThroughNext = false;
+          return;
+        }
+        // 그 외에는 도구가 켜져 있는 동안 실제 어드민 클릭(제출/이동 등)이 절대 일어나지 않도록 막는다.
         e.preventDefault();
         e.stopPropagation();
         if (!capturing) return; // 폼 작성 중에는 막기만 하고 새로 선택하지는 않는다
         var selector = buildSelector(t);
         var text = (t.textContent || "").trim().slice(0, 60);
+        pendingTargetEl = t;
         openCapture(selector, "<" + t.tagName.toLowerCase() + "> " + text + "\n" + selector);
       },
       true
@@ -538,7 +584,7 @@
 
     on(panel.querySelector(".slw-cancel-step"), "click", closeCapture);
 
-    on(panel.querySelector(".slw-confirm-step"), "click", function () {
+    function buildPendingStep() {
       var w = waitForField.value;
       var step = {
         selector: pendingSelector,
@@ -546,8 +592,29 @@
         description: descField.value.trim()
       };
       if (w) step.waitFor = { type: w };
+      return step;
+    }
+
+    on(panel.querySelector(".slw-confirm-step-nav"), "click", function () {
+      var step = buildPendingStep();
+      var target = pendingTargetEl;
       steps.push(step);
       renderStepsList();
+      saveDraft();
+      closeCapture();
+      if (!target || !document.body.contains(target)) {
+        toast("요소를 다시 찾지 못했습니다 — 화면에서 직접 클릭해 이동해주세요.");
+        return;
+      }
+      toast("스텝을 추가했습니다. 실제로 클릭해서 다음 화면으로 이동합니다…");
+      passThroughNext = true;
+      target.click();
+    });
+
+    on(panel.querySelector(".slw-confirm-step"), "click", function () {
+      steps.push(buildPendingStep());
+      renderStepsList();
+      saveDraft();
       closeCapture();
       toast("스텝을 추가했습니다 (" + steps.length + "개).");
     });
