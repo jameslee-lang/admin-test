@@ -418,6 +418,10 @@
     panel.innerHTML =
       "<h3 class=\"slw-drag-handle\" title=\"드래그해서 옮기기\">⠿ 플로우 빌더</h3>" +
       "<p style='margin:0 0 8px;color:#666;'>실제 화면 요소를 순서대로 클릭해서 스텝을 하나씩 쌓으세요. 다 만들면 아래에서 완성된 JSON을 통째로 받을 수 있습니다.</p>" +
+      "<label style='display:flex;align-items:center;gap:6px;font-size:11px;color:#888;margin:8px 0;text-transform:none;'>" +
+      '<input type="checkbox" class="slw-quick-mode" style="width:auto;">' +
+      "빠른 캡처 모드 — 클릭할 때마다 제목을 자동으로 채워 바로 스텝에 추가합니다 (설명은 나중에 목록에서 “수정”으로 채우세요)" +
+      "</label>" +
       "<label>플로우 ID (파일명, 영문/숫자/하이픈)</label>" +
       '<input type="text" class="slw-flow-id" placeholder="예: broadcast-register" value="' +
       escapeHtml(FLOW_ID || "") +
@@ -462,6 +466,7 @@
     var dragState = null; // 패널을 드래그로 옮기는 동안의 오프셋 (패널이 화면 요소를 가릴 때 옮기기 위함)
 
     var stepsListEl = panel.querySelector(".slw-steps-list");
+    var quickModeEl = panel.querySelector(".slw-quick-mode");
     var captureEl = panel.querySelector(".slw-capture");
     var confirmNavRowEl = panel.querySelector(".slw-confirm-nav-row");
     var pickedCtxEl = panel.querySelector(".slw-picked-ctx");
@@ -560,20 +565,62 @@
     }
     renderStepsList();
 
-    function openCapture(selector, ctx) {
+    function openCapture(selector, ctx, suggestedTitle) {
       editingIndex = null;
       pendingSelector = selector;
       pendingTargetEl = null;
       capturing = false;
       hl.style.display = "none";
       pickedCtxEl.textContent = selector ? ctx : "(요소 없음 — 정보 전용 안내 스텝)";
-      titleField.value = "";
+      titleField.value = suggestedTitle || "";
       descField.value = "";
       fillWaitForOptions(!!selector);
       confirmNavRowEl.style.display = selector ? "block" : "none";
       confirmStepBtn.textContent = "이 스텝 추가";
       captureEl.style.display = "block";
       titleField.focus();
+      // 자동 채워진 제목을 그대로 두거나, 바로 타이핑해서 한번에 덮어쓸 수 있게 전체 선택해둔다.
+      if (titleField.value && titleField.select) titleField.select();
+    }
+
+    // 화면 요소 자체(버튼 텍스트, placeholder, aria-label 등)에서 제목을 추측해 타이핑을 줄인다.
+    // 어디까지나 "제안"이라 사용자가 그대로 쓰거나 덮어쓸 수 있고, 못 찾으면 빈 문자열을 반환한다.
+    function suggestTitle(el, fallbackText) {
+      var tag = el && el.tagName ? el.tagName.toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select") {
+        return (
+          (el.getAttribute && el.getAttribute("placeholder")) ||
+          (el.getAttribute && el.getAttribute("aria-label")) ||
+          (el.getAttribute && el.getAttribute("name")) ||
+          ""
+        );
+      }
+      return (
+        (fallbackText || "").trim() ||
+        (el.getAttribute && el.getAttribute("aria-label")) ||
+        (el.getAttribute && el.getAttribute("title")) ||
+        ""
+      );
+    }
+
+    // 빠른 캡처 모드: 패널을 열지 않고 클릭 즉시 스텝을 하나 쌓는다. 설명은 비워두고, 자동 진행
+    // 조건은 입력 요소면 "입력하면", 그 외엔 "클릭하면"으로 무난한 기본값을 잡는다. 실제 클릭은
+    // (수동 모드의 기본 "이 스텝 추가"와 마찬가지로) 통과시키지 않는다 — 여러 화면을 넘나드는
+    // 스텝은 빠른 모드를 끄고 "스텝 추가 + 실제로 클릭해서 다음 화면 이동"을 쓰는 편이 안전하다.
+    function addQuickStep(el, selector, text) {
+      var tag = el && el.tagName ? el.tagName.toLowerCase() : "";
+      var isField = tag === "input" || tag === "textarea" || tag === "select";
+      var title = suggestTitle(el, text);
+      var step = {
+        selector: selector,
+        title: title || "(제목 없음)",
+        description: "",
+        waitFor: { type: isField ? "input" : "click" }
+      };
+      steps.push(step);
+      renderStepsList();
+      saveDraft();
+      toast("빠르게 스텝을 추가했습니다 (" + steps.length + "개). 나중에 “수정”에서 설명을 채워주세요.");
     }
 
     // 이미 추가된 스텝의 제목/설명/자동 진행 조건을 고친다. 요소를 다시 클릭해서 셀렉터 자체를
@@ -673,8 +720,16 @@
         if (!capturing) return; // 폼 작성 중에는 막기만 하고 새로 선택하지는 않는다
         var selector = buildSelector(t);
         var text = (t.textContent || "").trim().slice(0, 60);
+        if (quickModeEl.checked) {
+          addQuickStep(t, selector, text);
+          return;
+        }
         pendingTargetEl = t;
-        openCapture(selector, "<" + t.tagName.toLowerCase() + "> " + text + "\n" + selector);
+        openCapture(
+          selector,
+          "<" + t.tagName.toLowerCase() + "> " + text + "\n" + selector,
+          suggestTitle(t, text)
+        );
       },
       true
     );
