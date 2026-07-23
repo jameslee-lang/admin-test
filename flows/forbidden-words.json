@@ -1,0 +1,37 @@
+{
+  "id": "forbidden-words",
+  "title": "방송 금칙어 등록 (자세히)",
+  "category": "필수",
+  "_note": "Claude in Chrome으로 실제 어드민(adm.shoplive.cloud, '어드민 교육' 테스트 캠페인)에 로그인된 화면을 직접 읽어서 만들었습니다 — 화면 이동/클릭은 사람이 하고, 셀렉터 추출과 JSON 작성만 대신한 방식입니다. 스텝 1은 broadcast-register.json의 마지막 스텝과 같은 버튼(#campaign-form_campaignBannedWordCount > button)이라 이어지는 흐름입니다 — 두 플로우 사이에 중복이 있으니, broadcast-register.json의 해당 스텝을 남겨둘지 이 플로우로 대체할지는 review.md에 열어둔 결정 필요 항목입니다. 스텝 2의 셀렉터(.ant-modal-body .title-wrapper button)는 buildSelector가 자동으로 뽑는 값(div:nth-of-type(33)... 형태, 모달 마운트 순서에 따라 바뀔 수 있음) 대신 Ant Design 고정 클래스 조합으로 직접 골랐습니다 — 이 페이지에 숨겨진 다른 antd 모달(자동 추첨, 테마 프리셋)도 있어서 단순히 .ant-modal-body만 쓰면 여러 개에 걸립니다. 스텝 3의 #rc_select_0은 rc-select 라이브러리가 마운트 순서대로 붙이는 자동 카운터라 이 페이지에 다른 select가 먼저 마운트되면 번호가 달라질 수 있습니다 — 깨지면 플로우 빌더로 다시 캡처하세요. 스텝 4(매칭 범위) 설명 문구는 실제 동작을 보고 확인한 게 아니라 UI 문구만 보고 추측한 내용이라 부정확할 수 있습니다 — review.md에 표시해뒀습니다.",
+  "steps": [
+    {
+      "selector": "#campaign-form_campaignBannedWordCount > button",
+      "title": "방송 금칙어 관리",
+      "description": "이 방송에만 적용되는 금칙어를 설정합니다. \"관리\" 버튼을 눌러 목록을 확인·추가하세요.",
+      "waitFor": { "type": "click" }
+    },
+    {
+      "selector": ".ant-modal-body .title-wrapper button",
+      "title": "금칙어 추가",
+      "description": "새 금칙어를 추가합니다.",
+      "waitFor": { "type": "click" }
+    },
+    {
+      "selector": "#rc_select_0",
+      "title": "금칙어 입력",
+      "description": "차단할 단어나 표현을 입력하세요.",
+      "waitFor": { "type": "input" }
+    },
+    {
+      "selector": "#form-banned-word_matchStrategyType",
+      "title": "매칭 범위 선택",
+      "description": "부분 / 단어 / 문장 중 어떻게 매칭할지 고르세요 (정확한 동작은 review.md에서 확인 중입니다). 상황에 맞게 선택한 뒤 직접 다음으로 넘어가세요."
+    },
+    {
+      "selector": "#campaign-form > div:nth-of-type(4) > div:nth-of-type(2) > div:nth-of-type(2) > div > div > div > div > div > section > div > button",
+      "title": "추가하기",
+      "description": "입력한 금칙어를 저장합니다.",
+      "waitFor": { "type": "click" }
+    }
+  ]
+}
